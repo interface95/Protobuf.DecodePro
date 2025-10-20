@@ -635,25 +635,34 @@
     
     private void ExpandParentNodes(string path)
     {
-        // 分割路径，自动展开所有父节点
+        if (string.IsNullOrEmpty(path))
+            return;
+        
+        // 分割路径，自动展开所有父节点和目标节点
         var parts = path.Split('.');
         var currentPath = "";
         
-        for (int i = 0; i < parts.Length - 1; i++) // 不包括最后一个节点本身
+        for (int i = 0; i < parts.Length; i++)
         {
             var part = parts[i];
+            
+            // 如果这个部分包含数组索引（如 "1[1]"），先展开数组组节点（如 "1"）
+            if (part.Contains('['))
+            {
+                var baseField = part.Substring(0, part.IndexOf('['));
+                var arrayGroupPath = string.IsNullOrEmpty(currentPath) 
+                    ? baseField 
+                    : currentPath + "." + baseField;
+                treeState[arrayGroupPath] = true;
+            }
+            
+            // 构建当前完整路径
             if (!string.IsNullOrEmpty(currentPath))
                 currentPath += ".";
             currentPath += part;
             
-            // 展开父节点
+            // 展开当前节点
             treeState[currentPath] = true;
-        }
-        
-        // 同时展开目标节点本身（如果它有子节点的话）
-        if (!string.IsNullOrEmpty(path))
-        {
-            treeState[path] = true;
         }
     }
     
