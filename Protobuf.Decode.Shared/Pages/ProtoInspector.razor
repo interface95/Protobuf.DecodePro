@@ -38,6 +38,9 @@
     <section class="pane tree-pane">
         <header class="pane-bar">
             <span class="pane-title">结构树</span>
+            <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
+            <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
+            <button type="button" class="go" @onclick="ExportNodes" disabled="@(rootNodes.Count == 0)">导出节点</button>
             <div class="search-box">
                 <input type="text" 
                        class="search-input" 
@@ -60,12 +63,6 @@
                     }
                 }
             </div>
-            <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
-            <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
-            <select disabled>
-                <option>树形视图</option>
-            </select>
-            <button type="button" class="go" @onclick="ExportNodes" disabled="@(rootNodes.Count == 0)">导出节点</button>
         </header>
 
         <div class="tree-container">
