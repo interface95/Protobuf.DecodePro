@@ -6,6 +6,13 @@
         bool isFirstNode = i == 0;
         bool isSearchHighlight = SearchMatches.Contains(node.Path);
         bool isCurrentSearch = !string.IsNullOrEmpty(CurrentSearchPath) && node.Path == CurrentSearchPath;
+        
+        @* 调试：输出路径比较信息 *@
+        @if (!string.IsNullOrEmpty(CurrentSearchPath))
+        {
+            <text><!-- Debug: CurrentSearchPath=@CurrentSearchPath, node.Path=@node.Path, isCurrentSearch=@isCurrentSearch --></text>
+        }
+        
         <ProtoTreeViewNode Node="node"
                            OnSelect="OnSelect"
                            ExpandedState="ExpandedState"
