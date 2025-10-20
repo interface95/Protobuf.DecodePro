@@ -579,7 +579,7 @@
         }
     }
     
-    private void JumpToMatch(int index)
+    private async void JumpToMatch(int index)
     {
         if (index < 0 || index >= searchMatches.Count)
             return;
@@ -595,20 +595,54 @@
         
         // 触发 UI 更新
         StateHasChanged();
+        
+        // 等待 DOM 更新后滚动到节点
+        await Task.Delay(100); // 等待展开动画
+        await ScrollToNode(path);
+    }
+    
+    private async Task ScrollToNode(string path)
+    {
+        try
+        {
+            // 将路径转换为 DOM ID
+            var nodeId = "node-" + path.Replace(".", "-").Replace("[", "_").Replace("]", "_");
+            
+            // 调用 JavaScript 滚动到元素
+            await JS.InvokeVoidAsync("eval", $@"
+                const element = document.getElementById('{nodeId}');
+                if (element) {{
+                    element.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                }}
+            ");
+        }
+        catch
+        {
+            // 忽略滚动错误
+        }
     }
     
     private void ExpandParentNodes(string path)
     {
+        // 分割路径，自动展开所有父节点
         var parts = path.Split('.');
         var currentPath = "";
         
-        foreach (var part in parts)
+        for (int i = 0; i < parts.Length - 1; i++) // 不包括最后一个节点本身
         {
+            var part = parts[i];
             if (!string.IsNullOrEmpty(currentPath))
                 currentPath += ".";
             currentPath += part;
             
+            // 展开父节点
             treeState[currentPath] = true;
+        }
+        
+        // 同时展开目标节点本身（如果它有子节点的话）
+        if (!string.IsNullOrEmpty(path))
+        {
+            treeState[path] = true;
         }
     }
     
