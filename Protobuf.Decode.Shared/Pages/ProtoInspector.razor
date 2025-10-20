@@ -1621,13 +1621,15 @@
     /* Toast 消息提示样式 */
     .toast-container {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 3000;
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 12px;
-        max-width: 400px;
+        max-width: 500px;
     }
     
     .toast {
@@ -1638,8 +1640,8 @@
         background: white;
         border-radius: 8px;
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
-        animation: slideInRight 0.3s ease-out, fadeIn 0.3s ease-out;
-        min-width: 300px;
+        animation: slideInDown 0.3s ease-out;
+        min-width: 400px;
     }
     
     .toast-content {
@@ -1719,13 +1721,13 @@
         color: #3b82f6;
     }
     
-    @@keyframes slideInRight {
+    @@keyframes slideInDown {
         from {
-            transform: translateX(100%);
+            transform: translateY(-100%);
             opacity: 0;
         }
         to {
-            transform: translateX(0);
+            transform: translateY(0);
             opacity: 1;
         }
     }
