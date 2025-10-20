@@ -23,3 +23,10 @@ riderModule.iml
 Protobuf.Decode.Parser.Tests/log/*.bin
 Protobuf.Decode.Parser.Tests/log/collect*
 Protobuf.Decode.Parser.Tests/log/bigTestProtobuf.txt
+
+## Deployment (contains sensitive info)
+deploy.sh
+*.env
+.env.*
+*secret*
+*password*

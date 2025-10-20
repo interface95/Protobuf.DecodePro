@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Docker方式部署脚本（示例模板）
+# 使用说明：
+# 1. 复制此文件为 deploy.sh: cp deploy.sh.example deploy.sh
+# 2. 修改下面的配置信息
+# 3. 运行: ./deploy.sh
+
+# ============ 配置项 ============
+# 请根据实际情况修改以下配置
+
+SERVER_IP="your.server.ip"           # 服务器IP地址
+SERVER_PASSWORD="your_password"      # 服务器密码（建议使用SSH密钥代替）
+DOMAIN="your.domain.com"             # 域名
+
+# ==================================
+
+echo "======================================"
+echo "Docker方式部署 Protobuf.Decode.Web"
+echo "======================================"
+
+# 1. 发布项目
+echo "1. 发布项目..."
+cd Protobuf.Decode.Web
+rm -rf publish
+dotnet publish -c Release -o ./publish
+cd ..
+
+# 2. 打包文件
+echo "2. 打包文件..."
+tar -czf /tmp/protobuf-decode-build.tar.gz Protobuf.Decode.Web/publish/ Dockerfile
+
+# 3. 上传到服务器
+echo "3. 上传到服务器..."
+sshpass -p "$SERVER_PASSWORD" scp /tmp/protobuf-decode-build.tar.gz root@${SERVER_IP}:/tmp/
+
+# 4. 在服务器上部署
+echo "4. 在服务器上部署..."
+sshpass -p "$SERVER_PASSWORD" ssh root@${SERVER_IP} << 'ENDSSH'
+    cd /tmp
+    rm -rf Protobuf.Decode.Web Dockerfile
+    tar -xzf protobuf-decode-build.tar.gz
+    
+    echo "  停止旧容器..."
+    docker stop protobuf-decode 2>/dev/null || true
+    docker rm protobuf-decode 2>/dev/null || true
+    
+    echo "  构建镜像..."
+    docker build --no-cache -t protobuf-decode:latest . > /dev/null 2>&1
+    
+    echo "  启动容器..."
+    docker run -d \
+      --name protobuf-decode \
+      --restart unless-stopped \
+      -p 127.0.0.1:5001:80 \
+      -e ASPNETCORE_ENVIRONMENT=Production \
+      protobuf-decode:latest
+    
+    sleep 2
+    
+    echo "  检查容器状态..."
+    docker ps | grep protobuf-decode
+    
+    rm -rf /tmp/protobuf-decode-build.tar.gz /tmp/Protobuf.Decode.Web /tmp/Dockerfile
+ENDSSH
+
+# 5. 清理本地临时文件
+rm /tmp/protobuf-decode-build.tar.gz
+
+echo ""
+echo "======================================"
+echo "部署完成！"
+echo "网站地址: https://$DOMAIN"
+echo ""
+echo "Docker 管理命令："
+echo "  查看日志: docker logs -f protobuf-decode"
+echo "  重启容器: docker restart protobuf-decode"
+echo "  停止容器: docker stop protobuf-decode"
+echo "  查看状态: docker ps | grep protobuf-decode"
+echo "======================================"
+
