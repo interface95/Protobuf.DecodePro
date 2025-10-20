@@ -168,14 +168,17 @@ Protobuf.DecodePro/
 
 ## 💻 开发工具
 
-本项目完全使用 [**Cursor**](https://cursor.sh/) 开发 ✨
-
 <div align="center">
-  <img src="https://cursor.sh/brand/icon.svg" width="64" alt="Cursor Logo">
-  <p><strong>Powered by Cursor - The AI-first Code Editor</strong></p>
-</div>
+
+### ⚡ 本项目完全使用 [**Cursor**](https://cursor.sh/) 开发
+
+**Powered by Cursor - The AI-first Code Editor** 🚀
 
 Cursor 是一款基于 AI 的智能代码编辑器，极大地提升了开发效率。
+
+![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blueviolet?style=for-the-badge&logo=visual-studio-code)
+
+</div>
 
 ---
 
