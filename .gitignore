@@ -30,3 +30,6 @@ deploy.sh
 .env.*
 *secret*
 *password*
+
+## GitHub Actions (requires workflow scope to push)
+.github/workflows/
