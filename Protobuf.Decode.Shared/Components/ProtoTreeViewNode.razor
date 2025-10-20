@@ -21,6 +21,11 @@
             <ul class="tree-children">
                 @foreach (var child in Node.Children)
                 {
+                    var childIsCurrentSearch = !string.IsNullOrEmpty(CurrentSearchPath) && child.Path == CurrentSearchPath;
+                    @if (childIsCurrentSearch)
+                    {
+                        <text><!-- MATCH! CurrentSearchPath=@CurrentSearchPath, child.Path=@child.Path --></text>
+                    }
                     <ProtoTreeViewNode Node="child"
                                        OnSelect="OnSelect"
                                        ExpandedState="ExpandedState"
@@ -29,7 +34,7 @@
                                        SearchMatches="SearchMatches"
                                        CurrentSearchPath="CurrentSearchPath"
                                        IsSearchHighlight="SearchMatches.Contains(child.Path)"
-                                       IsCurrentSearch="!string.IsNullOrEmpty(CurrentSearchPath) && child.Path == CurrentSearchPath" />
+                                       IsCurrentSearch="childIsCurrentSearch" />
                 }
             </ul>
         }
