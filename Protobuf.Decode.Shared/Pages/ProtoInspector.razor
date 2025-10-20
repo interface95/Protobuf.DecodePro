@@ -54,7 +54,7 @@
                     <button type="button" class="search-clear" @onclick="ClearSearch">×</button>
                     @if (searchMatchCount > 0)
                     {
-                        <span class="search-count">@currentSearchIndex/@searchMatchCount</span>
+                        <span class="search-count">@currentSearchIndex/@searchMatchCount <small style="opacity: 0.5">[@currentSearchPath]</small></span>
                         <button type="button" class="search-nav" @onclick="PreviousMatch">▲</button>
                         <button type="button" class="search-nav" @onclick="NextMatch">▼</button>
                     }
@@ -137,9 +137,7 @@
     private List<string> searchMatches = new();
     private int currentSearchIndex = 0;
     private int searchMatchCount => searchMatches.Count;
-    private string currentSearchPath => searchMatchCount > 0 && currentSearchIndex > 0 
-        ? searchMatches[currentSearchIndex - 1] 
-        : string.Empty;
+    private string currentSearchPath = string.Empty; // 改为显式变量，而不是计算属性
 
     private async Task LoadFromFile(InputFileChangeEventArgs e)
     {
@@ -536,6 +534,7 @@
     {
         searchMatches.Clear();
         currentSearchIndex = 0;
+        currentSearchPath = string.Empty; // 清空当前搜索路径
         
         if (string.IsNullOrWhiteSpace(searchQuery))
         {
@@ -553,6 +552,7 @@
         if (searchMatches.Count > 0)
         {
             currentSearchIndex = 1;
+            currentSearchPath = searchMatches[0]; // 设置当前搜索路径
             await JumpToMatchAsync(0);
         }
         else
@@ -593,6 +593,7 @@
         
         var path = searchMatches[index];
         selectedPath = path;
+        // currentSearchPath 已经在调用者（NextMatch/PreviousMatch）中设置了
         
         // 自动展开父节点
         ExpandParentNodes(path);
@@ -691,8 +692,14 @@
         if (currentSearchIndex > searchMatches.Count)
             currentSearchIndex = 1;
         
-        StateHasChanged(); // 强制 UI 更新以应用 search-current 样式
+        // 设置当前搜索路径
+        currentSearchPath = searchMatches[currentSearchIndex - 1];
+        
+        // 强制 UI 更新以应用 search-current 样式
+        StateHasChanged();
         await Task.Delay(50); // 等待 DOM 更新
+        
+        // 跳转到匹配节点
         await JumpToMatchAsync(currentSearchIndex - 1);
     }
     
@@ -705,8 +712,14 @@
         if (currentSearchIndex < 1)
             currentSearchIndex = searchMatches.Count;
         
-        StateHasChanged(); // 强制 UI 更新以应用 search-current 样式
+        // 设置当前搜索路径
+        currentSearchPath = searchMatches[currentSearchIndex - 1];
+        
+        // 强制 UI 更新以应用 search-current 样式
+        StateHasChanged();
         await Task.Delay(50); // 等待 DOM 更新
+        
+        // 跳转到匹配节点
         await JumpToMatchAsync(currentSearchIndex - 1);
     }
     
@@ -715,6 +728,7 @@
         searchQuery = string.Empty;
         searchMatches.Clear();
         currentSearchIndex = 0;
+        currentSearchPath = string.Empty; // 清空当前搜索路径
     }
     
     private void HandleSearchKeyDown(KeyboardEventArgs e)
