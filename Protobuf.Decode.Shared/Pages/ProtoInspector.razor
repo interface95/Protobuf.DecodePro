@@ -847,14 +847,14 @@
         flex-direction: column;
         gap: 2px;
         margin-top: 2px;
-        padding-left: 0; /* 移除缩进，让子节点编号与父节点对齐 */
+        padding-left: 24px;
         position: relative;
     }
 
     .tree-children::before {
         content: "";
         position: absolute;
-        left: -10px;
+        left: 10px;
         top: 0;
         bottom: 4px;
         width: 1px;
@@ -863,7 +863,7 @@
 
     .tree-children > li {
         position: relative;
-        padding-left: 0;
+        padding-left: 8px;
     }
 
     .tree-children > li::before {
