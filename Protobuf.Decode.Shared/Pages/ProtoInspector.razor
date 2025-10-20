@@ -601,11 +601,12 @@
         // 查找并选中节点
         FindAndSelectNode(path);
         
-        // 触发 UI 更新
+        // 强制重新渲染整个组件树
         await InvokeAsync(StateHasChanged);
-        
-        // 等待 DOM 更新后滚动到节点
+        await Task.Yield(); // 让出控制权，确保 UI 更新
         await Task.Delay(100); // 等待展开动画
+        
+        // 滚动到节点
         await ScrollToNode(path);
     }
     
