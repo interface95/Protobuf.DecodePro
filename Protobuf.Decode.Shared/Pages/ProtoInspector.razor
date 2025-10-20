@@ -497,12 +497,12 @@
             if (rootNodes.Count > 0)
             {
                 lastStatus = $"解析成功，共 {rootNodes.Count} 个一级字段";
-                ShowToast($"✓ 解析成功，共 {rootNodes.Count} 个一级字段", ToastType.Success);
+                ShowToast($"解析成功，共 {rootNodes.Count} 个一级字段", ToastType.Success);
             }
             else
             {
                 lastStatus = "解析完成，没有识别到字段。";
-                ShowToast("⚠ 解析完成，没有识别到字段", ToastType.Warning);
+                ShowToast("解析完成，没有识别到字段", ToastType.Warning);
             }
         }
         catch (Exception ex)
@@ -515,7 +515,7 @@
             lastStatus = $"解析失败: {ex.Message}";
             errorDialogMessage = ex.Message;
             showErrorDialog = true;
-            ShowToast($"✗ 解析失败: {ex.Message}", ToastType.Error);
+            ShowToast($"解析失败: {ex.Message}", ToastType.Error);
         }
         finally
         {
