@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  protobuf-decode:
+    image: protobuf-decode:latest
+    container_name: protobuf-decode
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+

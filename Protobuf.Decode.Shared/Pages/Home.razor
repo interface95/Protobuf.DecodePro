@@ -1,0 +1,69 @@
+﻿@page "/login"
+
+<PageTitle>QQ 登录</PageTitle>
+
+<div class="login-page">
+    <div class="login-card">
+        <div class="avatar-wrapper">
+            <div class="avatar-badge">
+                <div class="avatar-bubble">
+                    <span>QQ</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-group has-clear@(string.IsNullOrWhiteSpace(account) ? string.Empty : " filled")">
+            <span class="input-icon">👤</span>
+            <input id="account"
+                   type="text"
+                   placeholder="输入QQ号码"
+                   autocomplete="username"
+                   @bind="account"
+                   @bind:event="oninput" />
+            <button type="button"
+                    class="icon-button clear"
+                    aria-label="清除账号"
+                    @onclick="ClearAccount"
+                    hidden="@string.IsNullOrWhiteSpace(account)">×</button>
+        </div>
+
+        <div class="input-group filled">
+            <span class="input-icon">🔒</span>
+            <input id="password"
+                   type="password"
+                   placeholder="输入QQ密码"
+                   autocomplete="current-password"
+                   @bind="password"
+                   @bind:event="oninput" />
+        </div>
+
+        <label class="agreement">
+            <input type="checkbox" @bind="hasAgreed" />
+            <span>
+                已阅读并同意
+                <a href="#">服务协议</a>
+                和
+                <a href="#">QQ隐私保护指引</a>
+            </span>
+        </label>
+
+        <button type="button" class="login-button" disabled="@(!hasAgreed)">登录</button>
+
+        <div class="footer-links">
+            <a href="#">扫码登录</a>
+            <span>｜</span>
+            <a href="#">更多选项</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string account = string.Empty;
+    private string password = string.Empty;
+    private bool hasAgreed;
+
+    private void ClearAccount()
+    {
+        account = string.Empty;
+    }
+}

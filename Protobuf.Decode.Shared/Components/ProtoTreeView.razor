@@ -1,0 +1,44 @@
+<ul class="tree-root">
+    @for (int i = 0; i < Nodes.Count; i++)
+    {
+        var node = Nodes[i];
+        bool isSelected = SelectedPath == node.Path;
+        bool isFirstNode = i == 0;
+        <ProtoTreeViewNode Node="node"
+                           OnSelect="OnSelect"
+                           ExpandedState="ExpandedState"
+                           SelectedPath="SelectedPath"
+                           IsSelected="isSelected"
+                           IsFirstNode="isFirstNode"
+                           TotalNodeCount="@(isFirstNode ? GetTotalNodeCount() : 0)" />
+    }
+</ul>
+
+@code {
+    [Parameter] public IReadOnlyList<ProtoDisplayNode> Nodes { get; set; } = [];
+    [Parameter] public EventCallback<ProtoDisplayNode> OnSelect { get; set; }
+    [Parameter] public string SelectedPath { get; set; } = string.Empty;
+
+    [Parameter] public Dictionary<string, bool> ExpandedState { get; set; } = new();
+
+    private int GetTotalNodeCount()
+    {
+        int count = 0;
+        foreach (var node in Nodes)
+        {
+            count += CountNodesRecursive(node);
+        }
+        return count;
+    }
+
+    private int CountNodesRecursive(ProtoDisplayNode node)
+    {
+        int count = 1; // 当前节点
+        foreach (var child in node.Children)
+        {
+            count += CountNodesRecursive(child);
+        }
+        return count;
+    }
+}
+

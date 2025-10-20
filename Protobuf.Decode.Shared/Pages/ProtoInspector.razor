@@ -1,0 +1,1270 @@
+@page "/"
+@page "/proto"
+
+@using System.Globalization
+@using System.IO
+@using System.Linq
+@using System.Text
+@using System.Threading.Tasks
+@inject IJSRuntime JS
+
+<PageTitle>Protobuf 解析</PageTitle>
+
+<div class="proto-workspace proto-root">
+    <section class="pane input-pane">
+        <header class="pane-bar">
+            <span class="pane-title">原始数据</span>
+            <div class="pane-tools">
+                <button type="button" class="primary" @onclick="ParseHexInputAsync">解析</button>
+                <button type="button" @onclick="LoadSampleAsync">示例</button>
+                <button type="button" @onclick="ClearAll">清空</button>
+                <label class="file-import">
+                    导入
+                    <InputFile OnChange="LoadFromFile" accept=".bin,.pb,.txt,.data,.json" />
+                </label>
+            </div>
+        </header>
+
+        <textarea class="input-area"
+                  placeholder="将十六进制、\\xAA 或 Base64 编码的 Protobuf 数据粘贴到这里!"
+                  @bind="hexInput"
+                  @bind:event="oninput"></textarea>
+
+        <footer class="pane-footer">
+            <div class="status">@lastStatus</div>
+        </footer>
+    </section>
+
+    <section class="pane tree-pane">
+        <header class="pane-bar">
+            <span class="pane-title">结构树</span>
+            <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
+            <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
+            <select disabled>
+                <option>树形视图</option>
+            </select>
+            <button type="button" class="go" @onclick="ExportNodes" disabled="@(rootNodes.Count == 0)">导出节点</button>
+        </header>
+
+        <div class="tree-container">
+            @if (rootNodes.Count == 0)
+            {
+                <p class="placeholder">解析结果会显示在这里。</p>
+            }
+            else
+            {
+                <ProtoTreeView Nodes="rootNodes"
+                               SelectedPath="selectedPath"
+                               OnSelect="HandleSelect"
+                               ExpandedState="treeState" />
+            }
+        </div>
+    </section>
+
+    <section class="pane detail-pane">
+        <header class="pane-bar">
+            <span class="pane-title">字段属性</span>
+        </header>
+
+        <div class="detail-container">
+            <ProtoDetail Node="selectedNode" Path="@selectedPath" />
+        </div>
+    </section>
+</div>
+
+@if (showErrorDialog)
+{
+    <div class="dialog-backdrop" @onclick="CloseErrorDialog">
+        <div class="dialog-modal" @onclick:stopPropagation>
+            <header class="dialog-header">
+                <span>解析失败</span>
+                <button type="button" class="dialog-close" @onclick="CloseErrorDialog">×</button>
+            </header>
+            <div class="dialog-body">
+                <p>@errorDialogMessage</p>
+            </div>
+            <footer class="dialog-footer">
+                <button type="button" class="primary" @onclick="CloseErrorDialog">好的</button>
+            </footer>
+        </div>
+    </div>
+}
+
+@code {
+    private const string SampleHex = "0AA00208AF8EABF5F73210012A99010A1A0A18414E44524F49445F363063656461613162636532666535321235082010011A027A682204584459582A0C362E31312E302E313031313830864F3A12636F6D2E736D696C652E6769666D616B657248031A170A02323512115869616F6475285844482D31382D41312922100802120CE4B8ADE59BBDE7A7BBE58AA83A191A17474D542B30383A303020417369612F5368616E6768616932531A5108011A4D0801220E69735F6C6F67696E3D46414C53452A2461323462663833612D373335642D346365332D623935642D303038383233633835393561300350015A0F564F4943455F424F585F4C4F47494E4A2462616631373736322D333835662D346437382D613130302D3166363939316635666664390AE50308BE96B2F5F73210012A9F010A200A18414E44524F49445F3630636564616131626365326665353210C49CABB30F1235082010011A027A682204584459582A0C362E31312E302E313031313830864F3A12636F6D2E736D696C652E6769666D616B657248031A170A02323512115869616F6475285844482D31382D41312922100802120CE4B8ADE59BBDE7A7BBE58AA83A191A17474D542B30383A303020417369612F5368616E67686169329102228E020A2462616631373736322D333835662D346437382D613130302D3166363939316635666664391808225F0801220D69735F6C6F67696E3D545255452A2462653833623937382D356336302D346661382D613734302D366663323931393766303630300350015A22564F4943455F424F585F4C414E4453434150455F564F4943455F424F585F46494E4452600802220E69735F6C6F67696E3D46414C53452A2465353331636438392D353237662D346265362D626532342D396135383836326334376665300250015A22564F4943455F424F585F4C414E4453434150455F564F4943455F424F585F46494E445A0E420C4C4F47494E5F425554544F4E650000803F720C4C4F47494E5F524553554C544A2462616631373736322D333835662D346437382D613130302D316636393931663566666439";
+    private string hexInput = string.Empty;
+    private readonly List<ProtoDisplayNode> rootNodes = new();
+    private readonly Dictionary<string, bool> treeState = new();
+    private ProtoDisplayNode? selectedNode;
+    private string selectedPath = string.Empty;
+    private string lastStatus = "";
+    private bool showErrorDialog;
+    private string errorDialogMessage = string.Empty;
+
+    private async Task LoadFromFile(InputFileChangeEventArgs e)
+    {
+        if (e.File is null)
+        {
+            lastStatus = "未选择文件";
+            return;
+        }
+
+        try
+        {
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+
+            var buffer = memory.ToArray();
+            if (buffer.Length == 0)
+            {
+                hexInput = string.Empty;
+                lastStatus = "文件为空";
+                return;
+            }
+
+            // Detect if file is likely text (hex/base64) or raw bytes
+            if (LooksLikeText(buffer))
+            {
+                var content = Encoding.UTF8.GetString(buffer);
+                hexInput = content;
+            }
+            else
+            {
+                hexInput = BitConverter.ToString(buffer).Replace('-', ' ');
+            }
+
+            lastStatus = $"已加载文件：{e.File.Name}";
+            await ParseHexInputAsync();
+        }
+        catch (IOException ex)
+        {
+            lastStatus = $"读取文件失败：{ex.Message}";
+        }
+    }
+
+    private static bool LooksLikeText(ReadOnlySpan<byte> data)
+    {
+        int printable = 0;
+        int total = Math.Min(data.Length, 1024);
+
+        for (int i = 0; i < total; i++)
+        {
+            byte b = data[i];
+            if (b == 0)
+            {
+                return false;
+            }
+
+            if (b >= 32 && b <= 126 || b == '\n' || b == '\r' || b == '\t')
+            {
+                printable++;
+            }
+        }
+
+        return printable >= total * 0.8;
+    }
+
+    private void CloseErrorDialog()
+    {
+        showErrorDialog = false;
+        errorDialogMessage = string.Empty;
+    }
+
+    private async Task ParseHexInputAsync()
+    {
+        lastStatus = "正在解析…";
+        await InvokeAsync(StateHasChanged);
+
+        await Task.Delay(10);
+
+        try
+        {
+            rootNodes.Clear();
+            selectedNode = null;
+            selectedPath = string.Empty;
+            treeState.Clear();
+
+            var bytes = ParseInput(hexInput);
+            var parsedNodes = ProtoParser.Parse(bytes);
+            rootNodes.AddRange(ProtoDisplayNode.FromNodes(parsedNodes));
+
+            lastStatus = rootNodes.Count > 0
+                ? $"解析成功，共 {rootNodes.Count} 个一级字段"
+                : "解析完成，没有识别到字段。";
+        }
+        catch (Exception ex)
+        {
+            rootNodes.Clear();
+            selectedNode = null;
+            selectedPath = string.Empty;
+            treeState.Clear();
+            rootNodes.Add(ProtoDisplayNode.CreateError(ex.Message));
+            lastStatus = $"解析失败: {ex.Message}";
+            errorDialogMessage = ex.Message;
+            showErrorDialog = true;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadSampleAsync()
+    {
+        try
+        {
+            hexInput = SampleHex;
+            await ParseHexInputAsync();
+        }
+        catch (Exception ex)
+        {
+            lastStatus = $"读取示例失败: {ex.Message}";
+        }
+    }
+
+    private void ClearAll()
+    {
+        hexInput = string.Empty;
+        rootNodes.Clear();
+        selectedNode = null;
+        selectedPath = string.Empty;
+        treeState.Clear();
+        lastStatus = string.Empty;
+    }
+
+    private async Task CopyHexInputAsync()
+    {
+        if (string.IsNullOrEmpty(hexInput))
+        {
+            lastStatus = "没有可复制的内容";
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", hexInput);
+        lastStatus = "已复制到剪贴板";
+    }
+
+    private void FormatHexInput()
+    {
+        var cleaned = GetSanitizedHex(hexInput);
+        if (cleaned.Length == 0)
+        {
+            hexInput = string.Empty;
+            lastStatus = "";
+            return;
+        }
+
+        if (cleaned.Length % 2 != 0)
+        {
+            lastStatus = "无法格式化：字符长度为奇数";
+            return;
+        }
+
+        var builder = new StringBuilder();
+        for (int i = 0; i < cleaned.Length; i += 2)
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append(' ');
+            }
+            builder.Append(cleaned.AsSpan(i, 2));
+        }
+
+        hexInput = builder.ToString().ToUpperInvariant();
+        lastStatus = "格式化完成";
+    }
+
+    private void RemoveWhitespace()
+    {
+        hexInput = GetSanitizedHex(hexInput).ToUpperInvariant();
+        lastStatus = "已删除空格";
+    }
+
+    private void RemoveWhitespaceAndEscape()
+    {
+        var cleaned = GetSanitizedHex(hexInput).ToUpperInvariant();
+        if (cleaned.Length == 0)
+        {
+            hexInput = string.Empty;
+            lastStatus = string.Empty;
+            return;
+        }
+
+        if (cleaned.Length % 2 != 0)
+        {
+            lastStatus = "无法转义：字符长度为奇数";
+            return;
+        }
+
+        var builder = new StringBuilder();
+        for (int i = 0; i < cleaned.Length; i += 2)
+        {
+            builder.Append("\\x");
+            builder.Append(cleaned.AsSpan(i, 2));
+        }
+
+        hexInput = builder.ToString();
+        lastStatus = "已删除空格并转义";
+    }
+
+    private void RemoveEscapes()
+    {
+        if (string.IsNullOrEmpty(hexInput))
+        {
+            return;
+        }
+
+        hexInput = hexInput.Replace("\\x", string.Empty, StringComparison.OrdinalIgnoreCase);
+        lastStatus = "已去除转义";
+    }
+
+    private static ReadOnlyMemory<byte> ParseInput(string text)
+    {
+        if (TryParseHex(text, out var hexBytes))
+        {
+            return hexBytes;
+        }
+
+        if (TryParseBase64(text, out var base64Bytes))
+        {
+            return base64Bytes;
+        }
+
+        throw new InvalidOperationException("无法识别输入格式：请提供十六进制、\\xAA 或 Base64 编码的 Protobuf 数据。");
+    }
+
+    private static bool TryParseHex(string text, out ReadOnlyMemory<byte> result)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            result = ReadOnlyMemory<byte>.Empty;
+            return true;
+        }
+
+        var candidate = new StringBuilder(text.Length);
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+
+            if (char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+
+            if (c == '\\' && i + 1 < text.Length && (text[i + 1] == 'x' || text[i + 1] == 'X'))
+            {
+                i++;
+                continue;
+            }
+
+            if (c == '0' && i + 1 < text.Length && (text[i + 1] == 'x' || text[i + 1] == 'X'))
+            {
+                i++;
+                continue;
+            }
+
+            if (Uri.IsHexDigit(c))
+            {
+                candidate.Append(c);
+                continue;
+            }
+
+            result = default;
+            return false;
+        }
+
+        if (candidate.Length == 0)
+        {
+            result = ReadOnlyMemory<byte>.Empty;
+            return true;
+        }
+
+        if (candidate.Length % 2 != 0)
+        {
+            result = default;
+            return false;
+        }
+
+        try
+        {
+            var buffer = Convert.FromHexString(candidate.ToString());
+            result = buffer;
+            return true;
+        }
+        catch (FormatException)
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    private static bool TryParseBase64(string text, out ReadOnlyMemory<byte> result)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            result = ReadOnlyMemory<byte>.Empty;
+            return true;
+        }
+
+        var noWhitespace = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            if (!char.IsWhiteSpace(c))
+            {
+                noWhitespace.Append(c);
+            }
+        }
+
+        if (noWhitespace.Length == 0)
+        {
+            result = ReadOnlyMemory<byte>.Empty;
+            return true;
+        }
+
+        var candidate = noWhitespace.ToString();
+        var normalized = candidate.Replace('-', '+').Replace('_', '/');
+
+        int padding = normalized.Length % 4;
+        if (padding != 0)
+        {
+            normalized = normalized.PadRight(normalized.Length + (4 - padding), '=');
+        }
+
+        try
+        {
+            var buffer = Convert.FromBase64String(normalized);
+            result = buffer;
+            return true;
+        }
+        catch (FormatException)
+        {
+            result = default;
+            return false;
+        }
+    }
+
+    private Task HandleSelect(ProtoDisplayNode node)
+    {
+        selectedNode = node;
+        selectedPath = node.Path;
+        return Task.CompletedTask;
+    }
+
+    private static string GetSanitizedHex(string source)
+        => new(source.Where(c => !char.IsWhiteSpace(c)).ToArray());
+
+    private void ExpandAll()
+    {
+        foreach (var node in rootNodes)
+        {
+            ExpandRecursive(node);
+        }
+    }
+
+    private void CollapseAll()
+    {
+        foreach (var node in rootNodes)
+        {
+            CollapseRecursive(node);
+        }
+    }
+
+    private void ExpandRecursive(ProtoDisplayNode node)
+    {
+        if (node.Children.Count == 0)
+        {
+            return;
+        }
+
+        treeState[node.Path] = true;
+        foreach (var child in node.Children)
+        {
+            ExpandRecursive(child);
+        }
+    }
+
+    private void CollapseRecursive(ProtoDisplayNode node)
+    {
+        treeState[node.Path] = false;
+        foreach (var child in node.Children)
+        {
+            CollapseRecursive(child);
+        }
+    }
+
+    private int GetTotalNodeCount()
+    {
+        int count = 0;
+        foreach (var node in rootNodes)
+        {
+            count += CountNodesRecursive(node);
+        }
+        return count;
+    }
+
+    private int CountNodesRecursive(ProtoDisplayNode node)
+    {
+        int count = 1; // 当前节点
+        foreach (var child in node.Children)
+        {
+            count += CountNodesRecursive(child);
+        }
+        return count;
+    }
+
+    private async Task ExportNodes()
+    {
+        if (rootNodes.Count == 0)
+        {
+            lastStatus = "没有可导出的节点";
+            return;
+        }
+
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Protobuf 节点导出");
+            sb.AppendLine("================");
+            sb.AppendLine($"导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"节点总数: {GetTotalNodeCount()}");
+            sb.AppendLine($"一级字段数: {rootNodes.Count}");
+            sb.AppendLine();
+            sb.AppendLine("节点详情:");
+            sb.AppendLine("--------");
+
+            foreach (var node in rootNodes)
+            {
+                ExportNodeRecursive(node, sb, 0);
+            }
+
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", sb.ToString());
+            lastStatus = $"已导出 {GetTotalNodeCount()} 个节点到剪贴板";
+        }
+        catch (Exception ex)
+        {
+            lastStatus = $"导出失败: {ex.Message}";
+        }
+    }
+
+    private void ExportNodeRecursive(ProtoDisplayNode node, StringBuilder sb, int level)
+    {
+        string indent = new string(' ', level * 2);
+        
+        sb.AppendLine($"{indent}[{node.FieldDisplay}] {node.Summary}");
+        
+        if (node.Node != null)
+        {
+            sb.AppendLine($"{indent}  Path: {node.Path}");
+            sb.AppendLine($"{indent}  WireType: {node.WireType}");
+            
+            if (node.Node.RawValue.Length > 0)
+            {
+                string hex = BitConverter.ToString(node.Node.RawValue.Span.ToArray()).Replace("-", " ");
+                sb.AppendLine($"{indent}  Hex: {hex}");
+            }
+        }
+
+        foreach (var child in node.Children)
+        {
+            ExportNodeRecursive(child, sb, level + 1);
+        }
+
+        if (level == 0)
+        {
+            sb.AppendLine();
+        }
+    }
+}
+
+<style>
+    html, body, #app, .proto-root {
+        height: 100%;
+        width: 100%;
+    }
+
+    .proto-workspace {
+        display: grid;
+        grid-template-columns: 320px 1fr 360px;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 12px;
+        height: 100%;
+        padding: 12px;
+        box-sizing: border-box;
+        background: #f0f3ff;
+        font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        color: #1b2130;
+        font-size: 15px;
+        font-weight: 500;
+    }
+
+    .pane {
+        background: #fff;
+        border: 1px solid #cdd6f6;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .pane-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: linear-gradient(180deg, #f6f8ff 0%, #e4ecff 100%);
+        border-bottom: 1px solid #d7e2ff;
+    }
+
+    .pane-title {
+        font-weight: 650;
+        color: #223671;
+        font-size: 19px;
+        white-space: nowrap;
+        line-height: 1;
+    }
+
+
+    .pane-tools {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-left: auto;
+        flex: 1;
+        max-width: 540px;
+    }
+
+    .pane-tools button,
+    .pane-bar button,
+    .pane-bar select {
+        font-size: 14px;
+        border: 1px solid #b9c6ef;
+        border-radius: 4px;
+        background: #fff;
+        color: #223671;
+        padding: 6px 12px;
+        cursor: pointer;
+        width: 100%;
+        font-weight: 500;
+    }
+
+    .pane-tools .file-import {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        border: 1px dashed #b9c6ef;
+        border-radius: 4px;
+        background: rgba(65, 119, 255, 0.08);
+        color: #223671;
+        padding: 6px 12px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+        font-weight: 500;
+        text-align: center;
+    }
+
+    .pane-tools .file-import:hover {
+        background: rgba(65, 119, 255, 0.12);
+        border-color: #96abf8;
+    }
+
+    .pane-tools .file-import input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .dialog-modal {
+        width: min(420px, calc(100% - 32px));
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 18px 48px rgba(25, 45, 86, 0.25);
+        border: 1px solid rgba(145, 165, 225, 0.45);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: dialog-pop 160ms ease-out;
+    }
+
+    .dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        background: linear-gradient(180deg, rgba(244, 248, 255, 0.95), rgba(228, 236, 255, 0.9));
+        border-bottom: 1px solid #d7e2ff;
+        font-size: 16px;
+        color: #1f2b4d;
+        font-weight: 650;
+    }
+
+    .dialog-body {
+        padding: 20px;
+        font-size: 14px;
+        color: #2c3858;
+        line-height: 1.6;
+        background: linear-gradient(180deg, #ffffff, #f7f9ff 60%, #f4f6ff 100%);
+    }
+
+    .dialog-body p {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .dialog-footer {
+        padding: 14px 20px 18px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        background: #f4f6ff;
+        border-top: 1px solid #d7e2ff;
+    }
+
+    .dialog-close {
+        border: none;
+        background: transparent;
+        font-size: 22px;
+        line-height: 1;
+        color: rgba(51, 68, 108, 0.6);
+        cursor: pointer;
+        padding: 0 6px;
+    }
+
+    .dialog-close:hover {
+        color: rgba(51, 68, 108, 0.85);
+    }
+
+    @@keyframes dialog-pop {
+        from {
+            opacity: 0;
+            transform: translateY(12px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .pane-tools .primary {
+        background: #4177ff;
+        border-color: #3368f2;
+        color: #fff;
+    }
+
+    .pane-bar select:disabled,
+    .pane-bar button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    .pane-bar .go {
+        font-weight: 600;
+        color: #4177ff;
+    }
+
+    .pane-bar .icon {
+        color: #4060b6;
+    }
+
+    .input-area {
+        flex: 1;
+        border: none;
+        padding: 10px;
+        font-family: Consolas, "JetBrains Mono", monospace;
+        font-size: 13px;
+        resize: none;
+        outline: none;
+        border-bottom: 1px solid #dbe2fa;
+    }
+
+    .pane-footer {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        background: #f6f8ff;
+        border-top: 1px solid #d7e2ff;
+    }
+
+    .status {
+        font-size: 14px;
+        color: #4a577a;
+        font-weight: 500;
+    }
+
+    .tree-container,
+    .detail-container {
+        flex: 1;
+        overflow: auto;
+        padding: 6px 8px;
+        background: #fff;
+    }
+
+    .placeholder {
+        margin: 12px;
+        color: #7d8ab1;
+        font-size: 12px;
+    }
+
+    .path-chip {
+        margin-left: auto;
+        font-size: 12px;
+        padding: 2px 8px;
+        background: #eef2ff;
+        border: 1px solid #c4d0fd;
+        border-radius: 999px;
+        color: #4b5fa1;
+    }
+
+    .tree-root,
+    .tree-children {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .tree-root {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .tree-children {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-top: 2px;
+        padding-left: 24px;
+        position: relative;
+    }
+
+    .tree-children::before {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 4px;
+        width: 1px;
+        background: #d7e2ff;
+    }
+
+    .tree-children > li {
+        position: relative;
+        padding-left: 8px;
+    }
+
+    .tree-children > li::before {
+        content: "";
+        position: absolute;
+        top: 14px;
+        left: -10px;
+        width: 10px;
+        height: 1px;
+        background: #d7e2ff;
+    }
+
+    .tree-node {
+        font-size: 14px;
+        color: #1f293f;
+        font-weight: 500;
+    }
+
+    .tree-node.expanded > .node-header .label {
+        background: rgba(230, 240, 255, 0.35);
+    }
+
+    .tree-node.has-children.expanded > .node-header .label,
+    .tree-node.is-array-group.expanded > .node-header .label {
+        border: 1px solid rgba(112, 145, 235, 0.45);
+    }
+
+    .tree-node.collapsed > .node-header .label.expandable {
+        background: transparent;
+        border: none;
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tree-node .label {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+        font-weight: 600;
+    }
+
+    .tree-node.is-array-group .label {
+        background: rgba(120, 144, 255, 0.18);
+    }
+
+    .tree-node.is-array-group .label:hover {
+        background: rgba(120, 144, 255, 0.28);
+    }
+
+    .tree-node .label.expandable {
+        gap: 12px;
+    }
+
+    .expander-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid #c0cef6;
+        background: #ecf1ff;
+        color: #3a5fb5;
+        margin-right: 6px;
+        font-size: 12px;
+        line-height: 1;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .expander-icon.wire-varint {
+        background: rgba(249, 168, 37, 0.18);
+        border-color: rgba(249, 168, 37, 0.42);
+        color: #b67805;
+    }
+
+    .expander-icon.wire-fixed32,
+    .expander-icon.wire-fixed64 {
+        background: rgba(249, 168, 37, 0.2);
+        border-color: rgba(249, 168, 37, 0.45);
+        color: #a66d00;
+    }
+
+    .expander-icon.wire-length {
+        background: rgba(46, 125, 50, 0.18);
+        border-color: rgba(46, 125, 50, 0.45);
+        color: #245b2c;
+    }
+
+    .expander-icon.wire-unknown {
+        background: rgba(240, 87, 87, 0.15);
+        border-color: rgba(212, 66, 66, 0.4);
+        color: #8f1e1e;
+    }
+
+    .tree-node .label.leaf {
+        background: transparent;
+    }
+
+    .tree-node .label:hover {
+        background: rgba(233, 240, 255, 0.35);
+    }
+
+    .field-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 8px;
+        height: 24px;
+        border-radius: 12px;
+        background: #eef2ff;
+        border: 1px solid #c7d2ff;
+        color: #31406d;
+        transition: none;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        min-width: 28px;
+    }
+
+    .field-number.wire-varint {
+        background: linear-gradient(135deg, rgba(249, 168, 37, 0.24), rgba(249, 213, 136, 0.1));
+        border-color: rgba(249, 168, 37, 0.42);
+        color: #b67805;
+    }
+
+    .field-number.wire-fixed32,
+    .field-number.wire-fixed64 {
+        background: linear-gradient(135deg, rgba(249, 168, 37, 0.26), rgba(249, 213, 136, 0.12));
+        border-color: rgba(249, 168, 37, 0.45);
+        color: #a66d00;
+    }
+
+    .field-number.wire-length {
+        background: linear-gradient(135deg, rgba(46, 125, 50, 0.22), rgba(46, 125, 50, 0.08));
+        border-color: rgba(46, 125, 50, 0.45);
+        color: #245b2c;
+    }
+
+    .field-number.wire-unknown {
+        background: linear-gradient(135deg, rgba(240, 87, 87, 0.22), rgba(240, 87, 87, 0.08));
+        border-color: rgba(212, 66, 66, 0.4);
+        color: #8f1e1e;
+    }
+
+    .tree-node.is-array-group .field-number {
+        background: linear-gradient(135deg, rgba(120, 144, 255, 0.28), rgba(120, 144, 255, 0.12));
+        border-color: rgba(120, 144, 255, 0.45);
+        color: #3142a0;
+    }
+
+    .wire-type {
+        font-family: "JetBrains Mono", monospace;
+        color: #3a55b4;
+        font-size: 12px;
+        white-space: nowrap;
+        font-weight: 650;
+    }
+
+    .summary {
+        color: #5f6d8b;
+        font-size: 12px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .wire-varint.wire-type,
+    .wire-varint.summary {
+        color: #b67805;
+    }
+
+    .wire-fixed32.wire-type,
+    .wire-fixed32.summary,
+    .wire-fixed64.wire-type,
+    .wire-fixed64.summary {
+        color: #a66d00;
+    }
+
+    .wire-length.wire-type,
+    .wire-length.summary {
+        color: #245b2c;
+    }
+
+    .wire-unknown.wire-type,
+    .wire-unknown.summary {
+        color: #8f1e1e;
+    }
+
+    .wire-array.wire-type,
+    .wire-array.summary {
+        color: #3142a0;
+    }
+
+    .wire-nested.wire-type,
+    .wire-nested.summary {
+        color: #4a577a;
+    }
+
+    .node-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        line-height: 1.2;
+        align-items: flex-start;
+        text-align: left;
+        min-width: 0;
+    }
+
+    .detail-card {
+        background: #f9fbff;
+        border: 1px solid #dce5ff;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 13px;
+        color: #2f3952;
+        text-align: left;
+    }
+
+    .detail-card p {
+        margin: 4px 0;
+    }
+
+    .detail-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-bottom: 12px;
+        border: 1px solid #d6defa;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(240, 244, 255, 0.45);
+    }
+
+    .detail-table th,
+    .detail-table td {
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #1f2a45;
+        border-bottom: 1px solid #d6defa;
+        vertical-align: top;
+    }
+
+    .detail-table tr:last-child th,
+    .detail-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .detail-table th {
+        width: 120px;
+        background: rgba(226, 234, 255, 0.55);
+        font-weight: 600;
+        color: #324278;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .detail-table td {
+        word-break: break-word;
+    }
+
+    .array-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 8px;
+        height: 22px;
+        border-radius: 999px;
+        background: rgba(63, 88, 166, 0.12);
+        color: #2c3f7a;
+        font-weight: 600;
+        font-size: 12px;
+        margin-right: 6px;
+    }
+
+    .array-index {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 650;
+        font-size: 12px;
+        color: #2d4fb2;
+    }
+
+    .detail-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .detail-actions button {
+        border: 1px solid #b9c6ef;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 12px;
+        background: #eef3ff;
+        color: #3c56a6;
+        cursor: pointer;
+    }
+
+    .children-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #dce5ff;
+    }
+
+    .children-title {
+        font-weight: 600;
+        color: #274183;
+        margin-bottom: 8px;
+    }
+
+    .detail-tree {
+        list-style: none;
+        margin: 0;
+        padding: 0 0 0 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .detail-tree.level-0 {
+        padding-left: 0;
+    }
+
+    .detail-tree li {
+        position: relative;
+    }
+
+    .detail-tree li::before {
+        content: "";
+        position: absolute;
+        top: 12px;
+        left: -12px;
+        width: 12px;
+        height: 1px;
+        background: #d4dcff;
+    }
+
+    .detail-tree.level-0 > li::before {
+        display: none;
+    }
+
+    .detail-tree-node {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #2f3a55;
+    }
+
+    .detail-tree-field {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: #eef2ff;
+        border: 1px solid #c7d2ff;
+        font-weight: 600;
+        color: #3d4d79;
+    }
+
+    .detail-tree-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        text-align: left;
+        line-height: 1.2;
+        padding: 6px 8px;
+        border: 1px solid #d6defa;
+        border-radius: 6px;
+        background: rgba(240, 244, 255, 0.5);
+    }
+
+    .detail-tree-wire {
+        font-family: "JetBrains Mono", monospace;
+        color: #4b70d8;
+        font-size: 11px;
+    }
+
+    .detail-tree-summary {
+        color: #5f6d8b;
+        font-size: 11px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    @@media (max-width: 1200px) {
+        .proto-workspace {
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(3, minmax(0, 340px));
+            height: auto;
+        }
+    }
+</style>
+

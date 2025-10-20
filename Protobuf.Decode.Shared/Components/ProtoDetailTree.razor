@@ -1,0 +1,28 @@
+@if (Nodes.Count > 0)
+{
+    <ul class="detail-tree level-@Level">
+        @foreach (var node in Nodes)
+        {
+            <li>
+                    <div class="detail-tree-node">
+                    <span class="detail-tree-field">@node.FieldNumber</span>
+                    <div class="detail-tree-info">
+                            <span class="detail-tree-wire">@node.WireType</span>
+                            <span class="detail-tree-summary">@node.Summary</span>
+                    </div>
+                </div>
+
+                @if (node.Children.Count > 0)
+                {
+                    <ProtoDetailTree Nodes="node.Children" Level="Level + 1" />
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ProtoDisplayNode> Nodes { get; set; } = Array.Empty<ProtoDisplayNode>();
+    [Parameter] public int Level { get; set; }
+}
+

@@ -1,0 +1,133 @@
+@using System.Text
+@using Protobuf.Decode.Parser
+
+@if (Node is null)
+{
+    <div class="detail-card">
+        <p class="placeholder">未选择节点。</p>
+    </div>
+}
+else if (Node.IsError)
+{
+    <div class="detail-card">
+        <p class="placeholder">@Node.Label</p>
+    </div>
+}
+else
+{
+    <div class="detail-card">
+        <table class="detail-table">
+            <tbody>
+                <tr>
+                    <th>Path</th>
+                    <td>@FormatPath(Path)</td>
+                </tr>
+                <tr>
+                    <th>WireType</th>
+                    <td>@Node.Node?.WireType</td>
+                </tr>
+
+                @if (Node.IsRepeated)
+                {
+                    <tr>
+                        <th>Array</th>
+                        <td>
+                            <span class="array-pill">数组</span>
+                            <span class="array-index">#@Node.OccurrenceIndex</span>
+                        </td>
+                    </tr>
+                }
+
+                @if (!string.IsNullOrEmpty(HexValue))
+                {
+                    <tr>
+                        <th>Hex</th>
+                        <td><code>@HexValue</code></td>
+                    </tr>
+                }
+
+                @if (Node.Node?.WireType == ProtoWireType.Varint)
+                {
+                    <tr>
+                        <th>Varint</th>
+                        <td>@Protobuf.Decode.Parser.ProtoDisplayNode.VarintToValue(Node.Node.RawValue.Span)</td>
+                    </tr>
+                }
+
+                @if (!string.IsNullOrEmpty(Utf8Value))
+                {
+                    <tr>
+                        <th>UTF8</th>
+                        <td>@Utf8Value</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (Node.Children.Count > 0)
+        {
+            <div class="children-section">
+                <p class="children-title">子节点:</p>
+                <ProtoDetailTree Nodes="Node.Children" Level="0" />
+            </div>
+        }
+
+        <div class="detail-actions">
+            <button type="button" @onclick="CopyPath">复制路径</button>
+            <button type="button" @onclick="CopyDetail">复制详情</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public ProtoDisplayNode? Node { get; set; }
+    [Parameter] public string Path { get; set; } = string.Empty;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private string HexValue => Node?.Node?.RawValue.Length > 0
+        ? BitConverter.ToString(Node.Node.RawValue.Span.ToArray()).Replace("-", string.Empty, StringComparison.Ordinal)
+        : string.Empty;
+
+    private string Utf8Value
+    {
+        get
+        {
+            if (Node?.Node is not { RawValue.Length: > 0 }) return string.Empty;
+            try
+            {
+                return Encoding.UTF8.GetString(Node.Node.RawValue.Span);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+    }
+
+    private Task CopyPath() => Copy(Path);
+
+    private async Task CopyDetail()
+    {
+        if (Node is null) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"路径: {FormatPath(Path)}");
+        sb.AppendLine($"WireType: {Node.Node?.WireType}");
+        if (!string.IsNullOrEmpty(HexValue)) sb.AppendLine($"Hex: {HexValue}");
+        if (!string.IsNullOrEmpty(Utf8Value)) sb.AppendLine($"UTF8: {Utf8Value}");
+        await Copy(sb.ToString());
+    }
+
+    private async Task Copy(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private string FormatPath(string rawPath)
+        => string.IsNullOrWhiteSpace(rawPath)
+            ? rawPath
+            : string.Join('.', rawPath.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(segment => segment.Split('-')[0]));
+}
+

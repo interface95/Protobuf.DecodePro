@@ -1,0 +1,25 @@
+## Build results
+bin/
+obj/
+/packages/
+publish/
+
+## IDE
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+riderModule.iml
+/_ReSharper.Caches/
+*.DotSettings.user
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+## Test logs
+Protobuf.Decode.Parser.Tests/log/*.bin
+Protobuf.Decode.Parser.Tests/log/collect*
+Protobuf.Decode.Parser.Tests/log/bigTestProtobuf.txt

@@ -1,0 +1,132 @@
+@using Protobuf.Decode.Parser
+<li class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed")">
+    @if (Node.Children.Count > 0)
+    {
+        <div class="node-header">
+            <span class="label expandable" @onclick="ToggleAndSelect">
+                <span class="expander-icon @(GetWireTypeClass())">@(IsExpanded ? "▾" : "▸")</span>
+                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay</span>
+                <span class="node-details">
+                    <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
+                    <span class="summary @(GetDetailClass())">
+                        @GetFormattedSummary()
+                    </span>
+                </span>
+            </span>
+        </div>
+
+        @if (IsExpanded)
+        {
+            <ul class="tree-children">
+                @foreach (var child in Node.Children)
+                {
+                    <ProtoTreeViewNode Node="child"
+                                       OnSelect="OnSelect"
+                                       ExpandedState="ExpandedState"
+                                       SelectedPath="SelectedPath"
+                                       IsSelected="SelectedPath == child.Path" />
+                }
+            </ul>
+        }
+    }
+    else
+    {
+        <div class="node-header">
+            <span class="label leaf" @onclick="Select">
+                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay</span>
+                <span class="node-details">
+                    <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
+                    <span class="summary @(GetDetailClass())">
+                        @GetFormattedSummary()
+                    </span>
+                </span>
+            </span>
+        </div>
+    }
+</li>
+
+@code {
+    [CascadingParameter] public ProtoTreeView Root { get; set; } = default!;
+    [Parameter] public ProtoDisplayNode Node { get; set; } = default!;
+    [Parameter] public EventCallback<ProtoDisplayNode> OnSelect { get; set; }
+    [Parameter] public Dictionary<string, bool> ExpandedState { get; set; } = default!;
+    [Parameter] public string SelectedPath { get; set; } = string.Empty;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsFirstNode { get; set; }
+    [Parameter] public int TotalNodeCount { get; set; }
+
+    private bool IsExpanded => ExpandedState.GetValueOrDefault(Node.Path);
+
+    private void Toggle()
+    {
+        ExpandedState[Node.Path] = !IsExpanded;
+    }
+
+    private Task Select() => OnSelect.InvokeAsync(Node);
+
+    private async Task ToggleAndSelect()
+    {
+        Toggle();
+        await Select();
+    }
+
+    private string GetWireTypeClass()
+        => Node.WireType switch
+        {
+            ProtoWireType.Varint => "wire-varint",
+            ProtoWireType.LengthDelimited => "wire-length",
+            ProtoWireType.Fixed32 => "wire-fixed32",
+            ProtoWireType.Fixed64 => "wire-fixed64",
+            _ => "wire-unknown"
+        };
+
+    private string GetNodeClasses()
+        => Node.IsArrayGroup
+            ? "is-array-group"
+            : (Node.Children.Count > 0 ? "has-children" : string.Empty);
+
+    private string GetDetailClass()
+    {
+        if (Node.IsArrayGroup)
+        {
+            return "wire-array";
+        }
+
+        if (Node.Children.Count > 0)
+        {
+            return "wire-nested";
+        }
+
+        return GetWireTypeClass();
+    }
+
+    private string GetFormattedSummary()
+    {
+        if (!IsFirstNode || TotalNodeCount == 0)
+        {
+            return Node.Summary;
+        }
+
+        // 从 Summary 中提取长度信息
+        var summary = Node.Summary;
+        var lengthMatch = System.Text.RegularExpressions.Regex.Match(summary, @"长度\s*(\d+)");
+        var length = lengthMatch.Success ? lengthMatch.Groups[1].Value : "0";
+
+        if (Node.IsArrayGroup)
+        {
+            // 数组格式: 数组 · {count} · 节点总数 · {totalCount} · 长度 · {length}
+            return $"数组 · {Node.Children.Count} · 节点总数 · {TotalNodeCount} · 长度 · {length}";
+        }
+        else if (Node.Children.Count > 0)
+        {
+            // 嵌套类格式: 嵌套类 · {count} · 节点总数 · {totalCount} · 长度 · {length}
+            return $"嵌套类 · {Node.Children.Count} 子节点 · 节点总数 · {TotalNodeCount} · 长度 · {length}";
+        }
+        else
+        {
+            // 叶子节点: 保持原样 + 节点总数
+            return $"{summary} · 节点总数 · {TotalNodeCount}";
+        }
+    }
+}
+
