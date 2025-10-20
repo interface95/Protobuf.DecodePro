@@ -38,6 +38,28 @@
     <section class="pane tree-pane">
         <header class="pane-bar">
             <span class="pane-title">结构树</span>
+            <div class="search-box">
+                <input type="text" 
+                       class="search-input" 
+                       placeholder="搜索字段..." 
+                       @bind="searchQuery" 
+                       @bind:event="oninput"
+                       @onkeydown="HandleSearchKeyDown" />
+                @if (!string.IsNullOrEmpty(searchQuery))
+                {
+                    <button type="button" class="search-clear" @onclick="ClearSearch">×</button>
+                    @if (searchMatchCount > 0)
+                    {
+                        <span class="search-count">@currentSearchIndex/@searchMatchCount</span>
+                        <button type="button" class="search-nav" @onclick="PreviousMatch">▲</button>
+                        <button type="button" class="search-nav" @onclick="NextMatch">▼</button>
+                    }
+                    else
+                    {
+                        <span class="search-count no-match">无匹配</span>
+                    }
+                }
+            </div>
             <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
             <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
             <select disabled>
@@ -100,6 +122,12 @@
     private string lastStatus = "";
     private bool showErrorDialog;
     private string errorDialogMessage = string.Empty;
+    
+    // 搜索相关
+    private string searchQuery = string.Empty;
+    private List<string> searchMatches = new();
+    private int currentSearchIndex = 0;
+    private int searchMatchCount => searchMatches.Count;
 
     private async Task LoadFromFile(InputFileChangeEventArgs e)
     {
@@ -491,6 +519,166 @@
         }
     }
 
+    // 搜索相关方法
+    private void PerformSearch()
+    {
+        searchMatches.Clear();
+        currentSearchIndex = 0;
+        
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            return;
+        }
+        
+        var query = searchQuery.ToLower();
+        foreach (var node in rootNodes)
+        {
+            SearchNodeRecursive(node, query);
+        }
+        
+        // 如果有匹配结果，跳转到第一个
+        if (searchMatches.Count > 0)
+        {
+            currentSearchIndex = 1;
+            JumpToMatch(0);
+        }
+    }
+    
+    private void SearchNodeRecursive(ProtoDisplayNode node, string query)
+    {
+        // 搜索字段编号、路径、值
+        bool matches = false;
+        
+        if (node.FieldNumber.ToString().Contains(query, StringComparison.OrdinalIgnoreCase))
+            matches = true;
+        else if (node.Summary.Contains(query, StringComparison.OrdinalIgnoreCase))
+            matches = true;
+        else if (node.WireType.ToString().Contains(query, StringComparison.OrdinalIgnoreCase))
+            matches = true;
+        else if (node.Path.Contains(query, StringComparison.OrdinalIgnoreCase))
+            matches = true;
+        
+        if (matches)
+        {
+            searchMatches.Add(node.Path);
+        }
+        
+        foreach (var child in node.Children)
+        {
+            SearchNodeRecursive(child, query);
+        }
+    }
+    
+    private void JumpToMatch(int index)
+    {
+        if (index < 0 || index >= searchMatches.Count)
+            return;
+        
+        var path = searchMatches[index];
+        selectedPath = path;
+        
+        // 自动展开父节点
+        ExpandParentNodes(path);
+        
+        // 查找并选中节点
+        FindAndSelectNode(path);
+    }
+    
+    private void ExpandParentNodes(string path)
+    {
+        var parts = path.Split('.');
+        var currentPath = "";
+        
+        foreach (var part in parts)
+        {
+            if (!string.IsNullOrEmpty(currentPath))
+                currentPath += ".";
+            currentPath += part;
+            
+            treeState[currentPath] = true;
+        }
+    }
+    
+    private void FindAndSelectNode(string path)
+    {
+        foreach (var node in rootNodes)
+        {
+            var found = FindNodeByPath(node, path);
+            if (found is not null)
+            {
+                selectedNode = found;
+                selectedPath = path;
+                return;
+            }
+        }
+    }
+    
+    private ProtoDisplayNode? FindNodeByPath(ProtoDisplayNode node, string path)
+    {
+        if (node.Path == path)
+            return node;
+        
+        foreach (var child in node.Children)
+        {
+            var found = FindNodeByPath(child, path);
+            if (found is not null)
+                return found;
+        }
+        
+        return null;
+    }
+    
+    private void NextMatch()
+    {
+        if (searchMatches.Count == 0)
+            return;
+        
+        currentSearchIndex++;
+        if (currentSearchIndex > searchMatches.Count)
+            currentSearchIndex = 1;
+        
+        JumpToMatch(currentSearchIndex - 1);
+    }
+    
+    private void PreviousMatch()
+    {
+        if (searchMatches.Count == 0)
+            return;
+        
+        currentSearchIndex--;
+        if (currentSearchIndex < 1)
+            currentSearchIndex = searchMatches.Count;
+        
+        JumpToMatch(currentSearchIndex - 1);
+    }
+    
+    private void ClearSearch()
+    {
+        searchQuery = string.Empty;
+        searchMatches.Clear();
+        currentSearchIndex = 0;
+    }
+    
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (e.ShiftKey)
+                PreviousMatch();
+            else
+                NextMatch();
+        }
+        else if (e.Key == "Escape")
+        {
+            ClearSearch();
+        }
+        else
+        {
+            // 输入变化时重新搜索
+            PerformSearch();
+        }
+    }
+
     private int GetTotalNodeCount()
     {
         int count = 0;
@@ -623,6 +811,78 @@
         line-height: 1;
     }
 
+    /* 搜索框样式 */
+    .search-box {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: white;
+        border: 1px solid #b9c6ef;
+        border-radius: 4px;
+        padding: 4px 8px;
+        flex: 1;
+        max-width: 300px;
+    }
+
+    .search-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 13px;
+        color: #1f293f;
+        background: transparent;
+        min-width: 100px;
+    }
+
+    .search-input::placeholder {
+        color: #94a3b8;
+    }
+
+    .search-clear {
+        background: none;
+        border: none;
+        color: #64748b;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0 4px;
+        line-height: 1;
+        font-weight: 300;
+    }
+
+    .search-clear:hover {
+        color: #ef4444;
+    }
+
+    .search-count {
+        font-size: 12px;
+        color: #4a577a;
+        padding: 2px 6px;
+        background: rgba(65, 119, 255, 0.1);
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+
+    .search-count.no-match {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+
+    .search-nav {
+        background: none;
+        border: 1px solid #d7e2ff;
+        border-radius: 3px;
+        color: #4a577a;
+        font-size: 10px;
+        cursor: pointer;
+        padding: 2px 6px;
+        line-height: 1;
+    }
+
+    .search-nav:hover {
+        background: rgba(65, 119, 255, 0.1);
+        border-color: #4177ff;
+        color: #4177ff;
+    }
 
     .pane-tools {
         display: grid;
