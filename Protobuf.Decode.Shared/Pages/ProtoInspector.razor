@@ -73,12 +73,14 @@
             }
             else
             {
-                <ProtoTreeView Nodes="rootNodes"
-                               SelectedPath="selectedPath"
-                               OnSelect="HandleSelect"
-                               ExpandedState="treeState"
-                               SearchMatches="searchMatches"
-                               CurrentSearchPath="currentSearchPath" />
+                <CascadingValue Value="currentSearchPath" Name="CurrentSearchPath">
+                    <ProtoTreeView Nodes="rootNodes"
+                                   SelectedPath="selectedPath"
+                                   OnSelect="HandleSelect"
+                                   ExpandedState="treeState"
+                                   SearchMatches="searchMatches"
+                                   CurrentSearchPath="currentSearchPath" />
+                </CascadingValue>
             }
         </div>
     </section>

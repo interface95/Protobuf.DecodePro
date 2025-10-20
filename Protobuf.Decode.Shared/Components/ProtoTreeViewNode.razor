@@ -31,7 +31,6 @@
                                        SelectedPath="SelectedPath"
                                        IsSelected="SelectedPath == child.Path"
                                        SearchMatches="SearchMatches"
-                                       CurrentSearchPath="CurrentSearchPath"
                                        IsSearchHighlight="SearchMatches.Contains(child.Path)" />
                 }
             </ul>
@@ -59,6 +58,7 @@
 
 @code {
     [CascadingParameter] public ProtoTreeView Root { get; set; } = default!;
+    [CascadingParameter(Name = "CurrentSearchPath")] public string CurrentSearchPath { get; set; } = string.Empty;
     [Parameter] public ProtoDisplayNode Node { get; set; } = default!;
     [Parameter] public EventCallback<ProtoDisplayNode> OnSelect { get; set; }
     [Parameter] public Dictionary<string, bool> ExpandedState { get; set; } = default!;
@@ -67,7 +67,6 @@
     [Parameter] public bool IsFirstNode { get; set; }
     [Parameter] public int TotalNodeCount { get; set; }
     [Parameter] public List<string> SearchMatches { get; set; } = new();
-    [Parameter] public string CurrentSearchPath { get; set; } = string.Empty;
     [Parameter] public bool IsSearchHighlight { get; set; }
 
     private bool IsExpanded => ExpandedState.GetValueOrDefault(Node.Path);
