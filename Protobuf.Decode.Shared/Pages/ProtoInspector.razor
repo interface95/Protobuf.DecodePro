@@ -122,7 +122,16 @@
     private string errorDialogMessage = string.Empty;
     
     // 搜索相关
-    private string searchQuery = string.Empty;
+    private string _searchQuery = string.Empty;
+    private string searchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            _searchQuery = value;
+            _ = PerformSearchAsync();
+        }
+    }
     private List<string> searchMatches = new();
     private int currentSearchIndex = 0;
     private int searchMatchCount => searchMatches.Count;
@@ -518,13 +527,14 @@
     }
 
     // 搜索相关方法
-    private void PerformSearch()
+    private async Task PerformSearchAsync()
     {
         searchMatches.Clear();
         currentSearchIndex = 0;
         
         if (string.IsNullOrWhiteSpace(searchQuery))
         {
+            await InvokeAsync(StateHasChanged);
             return;
         }
         
@@ -540,6 +550,8 @@
             currentSearchIndex = 1;
             JumpToMatch(0);
         }
+        
+        await InvokeAsync(StateHasChanged);
     }
     
     private void SearchNodeRecursive(ProtoDisplayNode node, string query)
@@ -580,6 +592,9 @@
         
         // 查找并选中节点
         FindAndSelectNode(path);
+        
+        // 触发 UI 更新
+        StateHasChanged();
     }
     
     private void ExpandParentNodes(string path)
@@ -669,11 +684,6 @@
         else if (e.Key == "Escape")
         {
             ClearSearch();
-        }
-        else
-        {
-            // 输入变化时重新搜索
-            PerformSearch();
         }
     }
 
