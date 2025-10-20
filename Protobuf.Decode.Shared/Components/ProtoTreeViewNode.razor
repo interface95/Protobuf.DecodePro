@@ -1,5 +1,5 @@
 @using Protobuf.Decode.Parser
-<li class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed") @(IsSearchHighlight ? "search-highlight" : string.Empty)">
+<li class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed") @(IsSearchMatch ? "search-match" : string.Empty) @(IsCurrentSearchMatch ? "search-current" : string.Empty)">
     @if (Node.Children.Count > 0)
     {
         <div class="node-header">
@@ -25,8 +25,10 @@
                                        ExpandedState="ExpandedState"
                                        SelectedPath="SelectedPath"
                                        IsSelected="SelectedPath == child.Path"
-                                       SearchHighlightPath="SearchHighlightPath"
-                                       IsSearchHighlight="!string.IsNullOrEmpty(SearchHighlightPath) && child.Path == SearchHighlightPath" />
+                                       SearchMatches="SearchMatches"
+                                       CurrentSearchPath="CurrentSearchPath"
+                                       IsSearchMatch="SearchMatches.Contains(child.Path)"
+                                       IsCurrentSearchMatch="!string.IsNullOrEmpty(CurrentSearchPath) && child.Path == CurrentSearchPath" />
                 }
             </ul>
         }
@@ -56,8 +58,10 @@
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public bool IsFirstNode { get; set; }
     [Parameter] public int TotalNodeCount { get; set; }
-    [Parameter] public string SearchHighlightPath { get; set; } = string.Empty;
-    [Parameter] public bool IsSearchHighlight { get; set; }
+    [Parameter] public List<string> SearchMatches { get; set; } = new();
+    [Parameter] public string CurrentSearchPath { get; set; } = string.Empty;
+    [Parameter] public bool IsSearchMatch { get; set; }
+    [Parameter] public bool IsCurrentSearchMatch { get; set; }
 
     private bool IsExpanded => ExpandedState.GetValueOrDefault(Node.Path);
 
