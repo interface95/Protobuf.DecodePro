@@ -6,6 +6,7 @@
 @using System.Linq
 @using System.Text
 @using System.Threading.Tasks
+@using Protobuf.Decode.Parser
 @inject IJSRuntime JS
 
 <PageTitle>Protobuf 解析</PageTitle>
@@ -552,10 +553,12 @@
         if (searchMatches.Count > 0)
         {
             currentSearchIndex = 1;
-            JumpToMatch(0);
+            await JumpToMatchAsync(0);
         }
-        
-        await InvokeAsync(StateHasChanged);
+        else
+        {
+            await InvokeAsync(StateHasChanged);
+        }
     }
     
     private void SearchNodeRecursive(ProtoDisplayNode node, string query)
@@ -583,7 +586,7 @@
         }
     }
     
-    private async void JumpToMatch(int index)
+    private async Task JumpToMatchAsync(int index)
     {
         if (index < 0 || index >= searchMatches.Count)
             return;
@@ -598,7 +601,7 @@
         FindAndSelectNode(path);
         
         // 触发 UI 更新
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
         
         // 等待 DOM 更新后滚动到节点
         await Task.Delay(100); // 等待展开动画
@@ -679,7 +682,7 @@
         return null;
     }
     
-    private void NextMatch()
+    private async void NextMatch()
     {
         if (searchMatches.Count == 0)
             return;
@@ -688,10 +691,12 @@
         if (currentSearchIndex > searchMatches.Count)
             currentSearchIndex = 1;
         
-        JumpToMatch(currentSearchIndex - 1);
+        StateHasChanged(); // 强制 UI 更新以应用 search-current 样式
+        await Task.Delay(50); // 等待 DOM 更新
+        await JumpToMatchAsync(currentSearchIndex - 1);
     }
     
-    private void PreviousMatch()
+    private async void PreviousMatch()
     {
         if (searchMatches.Count == 0)
             return;
@@ -700,7 +705,9 @@
         if (currentSearchIndex < 1)
             currentSearchIndex = searchMatches.Count;
         
-        JumpToMatch(currentSearchIndex - 1);
+        StateHasChanged(); // 强制 UI 更新以应用 search-current 样式
+        await Task.Delay(50); // 等待 DOM 更新
+        await JumpToMatchAsync(currentSearchIndex - 1);
     }
     
     private void ClearSearch()
