@@ -1,6 +1,9 @@
 @using Protobuf.Decode.Parser
 <li id="node-@Node.Path.Replace(".", "-").Replace("[", "_").Replace("]", "_")" 
-    class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed") @(IsSearchHighlight ? "search-highlight" : string.Empty) @(IsCurrentSearch ? "search-current" : string.Empty)">
+    class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed") @(IsSearchHighlight ? "search-highlight" : string.Empty) @(IsCurrentSearch ? "search-current" : string.Empty)"
+    data-path="@Node.Path"
+    data-current-path="@CurrentSearchPath"
+    data-is-current="@IsCurrentSearch">
     @if (Node.Children.Count > 0)
     {
         <div class="node-header">
