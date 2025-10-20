@@ -38,7 +38,7 @@
 
     <section class="pane tree-pane">
         <header class="pane-bar">
-            <span class="pane-title" style="font-size: 12px;">结构树 @(!string.IsNullOrEmpty(currentSearchPath) ? $"[当前:{currentSearchPath} | 匹配:{searchMatchCount}个]" : "")</span>
+            <span class="pane-title">结构树</span>
             <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
             <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
             <button type="button" class="go" @onclick="ExportNodes" disabled="@(rootNodes.Count == 0)">导出节点</button>
@@ -695,13 +695,6 @@
         // 设置当前搜索路径
         currentSearchPath = searchMatches[currentSearchIndex - 1];
         
-        // 调试：输出到浏览器控制台
-        await JS.InvokeVoidAsync("console.log", $"NextMatch: currentSearchPath = {currentSearchPath}");
-        
-        // 强制 UI 更新以应用 search-current 样式
-        StateHasChanged();
-        await Task.Delay(50); // 等待 DOM 更新
-        
         // 跳转到匹配节点
         await JumpToMatchAsync(currentSearchIndex - 1);
     }
@@ -717,10 +710,6 @@
         
         // 设置当前搜索路径
         currentSearchPath = searchMatches[currentSearchIndex - 1];
-        
-        // 强制 UI 更新以应用 search-current 样式
-        StateHasChanged();
-        await Task.Delay(50); // 等待 DOM 更新
         
         // 跳转到匹配节点
         await JumpToMatchAsync(currentSearchIndex - 1);
