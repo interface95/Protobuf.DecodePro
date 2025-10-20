@@ -4,13 +4,16 @@
         var node = Nodes[i];
         bool isSelected = SelectedPath == node.Path;
         bool isFirstNode = i == 0;
+        bool isSearchHighlight = !string.IsNullOrEmpty(SearchHighlightPath) && node.Path == SearchHighlightPath;
         <ProtoTreeViewNode Node="node"
                            OnSelect="OnSelect"
                            ExpandedState="ExpandedState"
                            SelectedPath="SelectedPath"
                            IsSelected="isSelected"
                            IsFirstNode="isFirstNode"
-                           TotalNodeCount="@(isFirstNode ? GetTotalNodeCount() : 0)" />
+                           TotalNodeCount="@(isFirstNode ? GetTotalNodeCount() : 0)"
+                           SearchHighlightPath="SearchHighlightPath"
+                           IsSearchHighlight="isSearchHighlight" />
     }
 </ul>
 
@@ -18,6 +21,7 @@
     [Parameter] public IReadOnlyList<ProtoDisplayNode> Nodes { get; set; } = [];
     [Parameter] public EventCallback<ProtoDisplayNode> OnSelect { get; set; }
     [Parameter] public string SelectedPath { get; set; } = string.Empty;
+    [Parameter] public string SearchHighlightPath { get; set; } = string.Empty;
 
     [Parameter] public Dictionary<string, bool> ExpandedState { get; set; } = new();
 

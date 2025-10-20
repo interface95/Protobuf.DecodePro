@@ -75,7 +75,8 @@
                 <ProtoTreeView Nodes="rootNodes"
                                SelectedPath="selectedPath"
                                OnSelect="HandleSelect"
-                               ExpandedState="treeState" />
+                               ExpandedState="treeState"
+                               SearchHighlightPath="@(searchMatchCount > 0 && currentSearchIndex > 0 ? searchMatches[currentSearchIndex - 1] : string.Empty)" />
             }
         </div>
     </section>
@@ -1137,6 +1138,24 @@
         font-size: 14px;
         color: #1f293f;
         font-weight: 500;
+    }
+
+    /* 搜索高亮样式 */
+    .tree-node.search-highlight > .node-header .label {
+        border: 2px solid #4177ff !important;
+        border-radius: 6px;
+        background: rgba(65, 119, 255, 0.08) !important;
+        box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15);
+        animation: search-pulse 0.6s ease-out;
+    }
+
+    @keyframes search-pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(65, 119, 255, 0.4);
+        }
+        100% {
+            box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15);
+        }
     }
 
     .tree-node.expanded > .node-header .label {

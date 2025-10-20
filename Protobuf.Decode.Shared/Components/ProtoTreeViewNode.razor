@@ -1,5 +1,5 @@
 @using Protobuf.Decode.Parser
-<li class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed")">
+<li class="tree-node @(GetNodeClasses()) @(IsSelected ? "selected" : string.Empty) @(IsExpanded ? "expanded" : "collapsed") @(IsSearchHighlight ? "search-highlight" : string.Empty)">
     @if (Node.Children.Count > 0)
     {
         <div class="node-header">
@@ -24,7 +24,9 @@
                                        OnSelect="OnSelect"
                                        ExpandedState="ExpandedState"
                                        SelectedPath="SelectedPath"
-                                       IsSelected="SelectedPath == child.Path" />
+                                       IsSelected="SelectedPath == child.Path"
+                                       SearchHighlightPath="SearchHighlightPath"
+                                       IsSearchHighlight="!string.IsNullOrEmpty(SearchHighlightPath) && child.Path == SearchHighlightPath" />
                 }
             </ul>
         }
@@ -54,6 +56,8 @@
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public bool IsFirstNode { get; set; }
     [Parameter] public int TotalNodeCount { get; set; }
+    [Parameter] public string SearchHighlightPath { get; set; } = string.Empty;
+    [Parameter] public bool IsSearchHighlight { get; set; }
 
     private bool IsExpanded => ExpandedState.GetValueOrDefault(Node.Path);
 
