@@ -54,7 +54,7 @@
                     <button type="button" class="search-clear" @onclick="ClearSearch">×</button>
                     @if (searchMatchCount > 0)
                     {
-                        <span class="search-count">@currentSearchIndex/@searchMatchCount <small style="opacity: 0.5">[@currentSearchPath]</small></span>
+                        <span class="search-count">@currentSearchIndex/@searchMatchCount</span>
                         <button type="button" class="search-nav" @onclick="PreviousMatch">▲</button>
                         <button type="button" class="search-nav" @onclick="NextMatch">▼</button>
                     }
@@ -1209,21 +1209,22 @@
         font-weight: 500;
     }
 
-    /* 搜索高亮样式 - 所有匹配的节点 */
+    /* 搜索高亮样式 - 所有匹配的节点（蓝色） */
     .tree-node.search-highlight > .node-header .label {
         border: 2px solid #4177ff !important;
         border-radius: 6px;
         background: rgba(65, 119, 255, 0.08) !important;
-        box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15);
+        box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15) !important;
     }
 
-    /* 当前搜索节点 - 点击▼/▲时激活的节点 */
-    .tree-node.search-current > .node-header .label {
+    /* 当前搜索节点 - 点击▼/▲时激活的节点（橙色）- 优先级更高 */
+    .tree-node.search-current > .node-header .label,
+    .tree-node.search-highlight.search-current > .node-header .label {
         border: 3px solid #ff6b35 !important;
-        border-radius: 6px;
+        border-radius: 6px !important;
         background: rgba(255, 107, 53, 0.12) !important;
-        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
-        animation: current-pulse 0.6s ease-out;
+        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25) !important;
+        animation: current-pulse 0.6s ease-out !important;
     }
 
     @@keyframes current-pulse {
