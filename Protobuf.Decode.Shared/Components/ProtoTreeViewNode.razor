@@ -6,7 +6,7 @@
         <div class="node-header">
             <span class="label expandable" @onclick="ToggleAndSelect">
                 <span class="expander-icon @(GetWireTypeClass())">@(IsExpanded ? "▾" : "▸")</span>
-                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay</span>
+                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay @(IsCurrentSearch ? "🟠" : "")</span>
                 <span class="node-details">
                     <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
                     <span class="summary @(GetDetailClass())">
@@ -38,7 +38,7 @@
     {
         <div class="node-header">
             <span class="label leaf" @onclick="Select">
-                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay</span>
+                <span class="field-number @(GetWireTypeClass())">@Node.FieldDisplay @(IsCurrentSearch ? "🟠" : "")</span>
                 <span class="node-details">
                     <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
                     <span class="summary @(GetDetailClass())">

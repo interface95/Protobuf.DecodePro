@@ -38,7 +38,7 @@
 
     <section class="pane tree-pane">
         <header class="pane-bar">
-            <span class="pane-title">结构树</span>
+            <span class="pane-title">结构树 @(!string.IsNullOrEmpty(currentSearchPath) ? $"[当前: {currentSearchPath}]" : "")</span>
             <button type="button" class="icon" @onclick="ExpandAll">全部展开</button>
             <button type="button" class="icon" @onclick="CollapseAll">全部收缩</button>
             <button type="button" class="go" @onclick="ExportNodes" disabled="@(rootNodes.Count == 0)">导出节点</button>
