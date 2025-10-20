@@ -113,7 +113,13 @@
         if (string.IsNullOrEmpty(CurrentSearchPath))
             return string.Empty;
         
-        return Node.Path == CurrentSearchPath ? "search-current" : string.Empty;
+        // 强制返回 search-current，用于测试是否真的应用了
+        if (Node.Path == CurrentSearchPath)
+        {
+            return "search-current DEBUG-MATCH";
+        }
+        
+        return string.Empty;
     }
 
     private string GetFormattedSummary()
