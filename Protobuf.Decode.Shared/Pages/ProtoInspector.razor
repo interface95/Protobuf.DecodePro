@@ -1212,26 +1212,26 @@
         box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15) !important;
     }
 
-    /* 当前搜索节点 - 点击▼/▲时激活的节点（橙色）- 优先级更高 */
+    /* 当前搜索节点 - 点击▼/▲时激活的节点（绿色）- 优先级更高 */
     .tree-node.search-current > .node-header .label,
     .tree-node.search-highlight.search-current > .node-header .label {
-        border: 3px solid #ff6b35 !important;
+        border: 3px solid #00c853 !important;
         border-radius: 6px !important;
-        background: rgba(255, 107, 53, 0.12) !important;
-        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25) !important;
+        background: rgba(0, 200, 83, 0.12) !important;
+        box-shadow: 0 0 0 4px rgba(0, 200, 83, 0.25) !important;
         animation: current-pulse 0.6s ease-out !important;
     }
 
     @@keyframes current-pulse {
         0% {
-            box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.6);
+            box-shadow: 0 0 0 0 rgba(0, 200, 83, 0.6);
             transform: scale(1);
         }
         50% {
             transform: scale(1.02);
         }
         100% {
-            box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
+            box-shadow: 0 0 0 4px rgba(0, 200, 83, 0.25);
             transform: scale(1);
         }
     }
