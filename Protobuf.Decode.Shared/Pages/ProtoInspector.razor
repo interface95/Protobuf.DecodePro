@@ -496,8 +496,9 @@
 
             if (rootNodes.Count > 0)
             {
+                var totalNodes = GetTotalNodeCount();
                 lastStatus = $"解析成功，共 {rootNodes.Count} 个一级字段";
-                ShowToast($"解析成功，共 {rootNodes.Count} 个一级字段", ToastType.Success);
+                ShowToast($"解析成功，共 {rootNodes.Count} 个一级字段，节点总数 {totalNodes}", ToastType.Success);
             }
             else
             {
