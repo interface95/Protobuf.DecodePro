@@ -13,7 +13,7 @@
                         @GetFormattedSummary()
                         @if (!string.IsNullOrEmpty(CurrentSearchPath))
                         {
-                            <small style="color: red; font-size: 10px;">[@Node.Path vs @CurrentSearchPath]</small>
+                            <small style="color: red; font-size: 10px;">[P:@(Node.Path)|S:@(CurrentSearchPath)|=@(Node.Path==CurrentSearchPath)]</small>
                         }
                     </span>
                 </span>
@@ -48,7 +48,7 @@
                         @GetFormattedSummary()
                         @if (!string.IsNullOrEmpty(CurrentSearchPath))
                         {
-                            <small style="color: red; font-size: 10px;">[@Node.Path vs @CurrentSearchPath]</small>
+                            <small style="color: red; font-size: 10px;">[P:@(Node.Path)|S:@(CurrentSearchPath)|=@(Node.Path==CurrentSearchPath)]</small>
                         }
                     </span>
                 </span>
