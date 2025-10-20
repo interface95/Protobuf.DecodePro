@@ -114,6 +114,63 @@
     </div>
 }
 
+@if (showImportDialog)
+{
+    <div class="dialog-backdrop" @onclick="CloseImportDialog">
+        <div class="dialog-modal import-dialog" @onclick:stopPropagation>
+            <header class="dialog-header">
+                <span>导入文件</span>
+                <button type="button" class="dialog-close" @onclick="CloseImportDialog">×</button>
+            </header>
+            <div class="dialog-body">
+                <div class="file-info">
+                    <div class="info-row">
+                        <span class="info-label">文件名称：</span>
+                        <span class="info-value">@pendingFileName</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">文件大小：</span>
+                        <span class="info-value">@FormatFileSize(pendingFileSize)</span>
+                    </div>
+                </div>
+
+                <div class="import-options">
+                    <h4>导入选项</h4>
+                    
+                    <div class="option-group">
+                        <label class="option-item">
+                            <input type="checkbox" @bind="importOptions.GzipDecompress" />
+                            <span>Gzip 解压</span>
+                        </label>
+                        <div class="option-desc">自动检测并解压 Gzip 压缩的数据</div>
+                    </div>
+
+                    <div class="option-group">
+                        <label class="option-label">数据格式：</label>
+                        <select @bind="importOptions.DataFormat" class="option-select">
+                            <option value="auto">自动检测</option>
+                            <option value="hex">十六进制文本</option>
+                            <option value="base64">Base64 编码</option>
+                            <option value="binary">原始二进制</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label class="option-item">
+                            <input type="checkbox" @bind="importOptions.AutoParse" />
+                            <span>导入后自动解析</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <footer class="dialog-footer">
+                <button type="button" @onclick="CloseImportDialog">取消</button>
+                <button type="button" class="primary" @onclick="ConfirmImport">确定导入</button>
+            </footer>
+        </div>
+    </div>
+}
+
 @code {
     private const string SampleHex = "0AA00208AF8EABF5F73210012A99010A1A0A18414E44524F49445F363063656461613162636532666535321235082010011A027A682204584459582A0C362E31312E302E313031313830864F3A12636F6D2E736D696C652E6769666D616B657248031A170A02323512115869616F6475285844482D31382D41312922100802120CE4B8ADE59BBDE7A7BBE58AA83A191A17474D542B30383A303020417369612F5368616E6768616932531A5108011A4D0801220E69735F6C6F67696E3D46414C53452A2461323462663833612D373335642D346365332D623935642D303038383233633835393561300350015A0F564F4943455F424F585F4C4F47494E4A2462616631373736322D333835662D346437382D613130302D3166363939316635666664390AE50308BE96B2F5F73210012A9F010A200A18414E44524F49445F3630636564616131626365326665353210C49CABB30F1235082010011A027A682204584459582A0C362E31312E302E313031313830864F3A12636F6D2E736D696C652E6769666D616B657248031A170A02323512115869616F6475285844482D31382D41312922100802120CE4B8ADE59BBDE7A7BBE58AA83A191A17474D542B30383A303020417369612F5368616E67686169329102228E020A2462616631373736322D333835662D346437382D613130302D3166363939316635666664391808225F0801220D69735F6C6F67696E3D545255452A2462653833623937382D356336302D346661382D613734302D366663323931393766303630300350015A22564F4943455F424F585F4C414E4453434150455F564F4943455F424F585F46494E4452600802220E69735F6C6F67696E3D46414C53452A2465353331636438392D353237662D346265362D626532342D396135383836326334376665300250015A22564F4943455F424F585F4C414E4453434150455F564F4943455F424F585F46494E445A0E420C4C4F47494E5F425554544F4E650000803F720C4C4F47494E5F524553554C544A2462616631373736322D333835662D346437382D613130302D316636393931663566666439";
     private string hexInput = string.Empty;
@@ -124,6 +181,20 @@
     private string lastStatus = "";
     private bool showErrorDialog;
     private string errorDialogMessage = string.Empty;
+    
+    // 导入对话框相关
+    private bool showImportDialog;
+    private string pendingFileName = string.Empty;
+    private long pendingFileSize;
+    private byte[] pendingFileData = Array.Empty<byte>();
+    private ImportOptions importOptions = new();
+    
+    private class ImportOptions
+    {
+        public bool GzipDecompress { get; set; } = true;
+        public string DataFormat { get; set; } = "auto";
+        public bool AutoParse { get; set; } = true;
+    }
     
     // 搜索相关
     private string _searchQuery = string.Empty;
@@ -151,36 +222,134 @@
 
         try
         {
+            // 读取文件内容
             await using var stream = e.File.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
             using var memory = new MemoryStream();
             await stream.CopyToAsync(memory);
 
-            var buffer = memory.ToArray();
-            if (buffer.Length == 0)
+            pendingFileData = memory.ToArray();
+            
+            if (pendingFileData.Length == 0)
             {
-                hexInput = string.Empty;
                 lastStatus = "文件为空";
                 return;
             }
 
-            // Detect if file is likely text (hex/base64) or raw bytes
-            if (LooksLikeText(buffer))
-            {
-                var content = Encoding.UTF8.GetString(buffer);
-                hexInput = content;
-            }
-            else
-            {
-                hexInput = BitConverter.ToString(buffer).Replace('-', ' ');
-            }
-
-            lastStatus = $"已加载文件：{e.File.Name}";
-            await ParseHexInputAsync();
+            // 存储文件信息并显示对话框
+            pendingFileName = e.File.Name;
+            pendingFileSize = pendingFileData.Length;
+            
+            // 重置导入选项为默认值
+            importOptions = new ImportOptions();
+            
+            // 显示导入对话框
+            showImportDialog = true;
         }
         catch (IOException ex)
         {
             lastStatus = $"读取文件失败：{ex.Message}";
         }
+    }
+    
+    private void CloseImportDialog()
+    {
+        showImportDialog = false;
+        pendingFileData = Array.Empty<byte>();
+        pendingFileName = string.Empty;
+        pendingFileSize = 0;
+    }
+    
+    private async Task ConfirmImport()
+    {
+        try
+        {
+            var buffer = pendingFileData;
+            
+            // 1. Gzip 解压（如果需要）
+            if (importOptions.GzipDecompress && IsGzipData(buffer))
+            {
+                buffer = DecompressGzip(buffer);
+                lastStatus = $"Gzip 解压成功，解压后大小：{FormatFileSize(buffer.Length)}";
+            }
+            
+            // 2. 根据数据格式处理
+            switch (importOptions.DataFormat)
+            {
+                case "auto":
+                    // 自动检测
+                    if (LooksLikeText(buffer))
+                    {
+                        hexInput = Encoding.UTF8.GetString(buffer);
+                    }
+                    else
+                    {
+                        hexInput = BitConverter.ToString(buffer).Replace('-', ' ');
+                    }
+                    break;
+                    
+                case "hex":
+                    // 十六进制文本
+                    hexInput = Encoding.UTF8.GetString(buffer);
+                    break;
+                    
+                case "base64":
+                    // Base64 编码
+                    hexInput = Encoding.UTF8.GetString(buffer);
+                    break;
+                    
+                case "binary":
+                    // 原始二进制
+                    hexInput = BitConverter.ToString(buffer).Replace('-', ' ');
+                    break;
+            }
+
+            lastStatus = $"已加载文件：{pendingFileName}";
+            
+            // 3. 自动解析（如果需要）
+            if (importOptions.AutoParse)
+            {
+                await ParseHexInputAsync();
+            }
+            
+            // 关闭对话框
+            CloseImportDialog();
+        }
+        catch (Exception ex)
+        {
+            lastStatus = $"导入失败：{ex.Message}";
+            CloseImportDialog();
+        }
+    }
+    
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        
+        return $"{len:0.##} {sizes[order]}";
+    }
+    
+    private static bool IsGzipData(byte[] data)
+    {
+        // Gzip 文件头：0x1F 0x8B
+        return data.Length >= 2 && data[0] == 0x1F && data[1] == 0x8B;
+    }
+    
+    private static byte[] DecompressGzip(byte[] data)
+    {
+        using var compressedStream = new MemoryStream(data);
+        using var gzipStream = new System.IO.Compression.GZipStream(compressedStream, System.IO.Compression.CompressionMode.Decompress);
+        using var resultStream = new MemoryStream();
+        
+        gzipStream.CopyTo(resultStream);
+        return resultStream.ToArray();
     }
 
     private static bool LooksLikeText(ReadOnlySpan<byte> data)
@@ -1051,6 +1220,10 @@
         overflow: hidden;
         animation: dialog-pop 160ms ease-out;
     }
+    
+    .dialog-modal.import-dialog {
+        width: min(520px, calc(100% - 32px));
+    }
 
     .dialog-header {
         display: flex;
@@ -1099,6 +1272,95 @@
 
     .dialog-close:hover {
         color: rgba(51, 68, 108, 0.85);
+    }
+    
+    /* 导入对话框样式 */
+    .file-info {
+        background: #f8faff;
+        border: 1px solid #e2e8f9;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+    }
+    
+    .info-row {
+        display: flex;
+        align-items: center;
+        margin: 6px 0;
+        font-size: 14px;
+    }
+    
+    .info-label {
+        color: #64748b;
+        min-width: 80px;
+        font-weight: 500;
+    }
+    
+    .info-value {
+        color: #1e293b;
+        font-weight: 500;
+        word-break: break-all;
+    }
+    
+    .import-options h4 {
+        margin: 0 0 16px 0;
+        font-size: 14px;
+        color: #475569;
+        font-weight: 600;
+    }
+    
+    .option-group {
+        margin-bottom: 16px;
+    }
+    
+    .option-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #1e293b;
+        font-weight: 500;
+    }
+    
+    .option-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #4177ff;
+    }
+    
+    .option-desc {
+        margin-top: 4px;
+        margin-left: 24px;
+        font-size: 12px;
+        color: #64748b;
+    }
+    
+    .option-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: #475569;
+        font-weight: 500;
+    }
+    
+    .option-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #1e293b;
+        background: white;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    
+    .option-select:focus {
+        outline: none;
+        border-color: #4177ff;
+        box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.1);
     }
 
     @@keyframes dialog-pop {
