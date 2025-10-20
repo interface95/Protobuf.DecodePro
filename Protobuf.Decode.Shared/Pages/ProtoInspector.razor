@@ -76,7 +76,8 @@
                                SelectedPath="selectedPath"
                                OnSelect="HandleSelect"
                                ExpandedState="treeState"
-                               SearchMatches="searchMatches" />
+                               SearchMatches="searchMatches"
+                               CurrentSearchPath="currentSearchPath" />
             }
         </div>
     </section>
@@ -135,6 +136,9 @@
     private List<string> searchMatches = new();
     private int currentSearchIndex = 0;
     private int searchMatchCount => searchMatches.Count;
+    private string currentSearchPath => searchMatchCount > 0 && currentSearchIndex > 0 
+        ? searchMatches[currentSearchIndex - 1] 
+        : string.Empty;
 
     private async Task LoadFromFile(InputFileChangeEventArgs e)
     {
@@ -1184,21 +1188,34 @@
         font-weight: 500;
     }
 
-    /* 搜索高亮样式 */
+    /* 搜索高亮样式 - 所有匹配的节点 */
     .tree-node.search-highlight > .node-header .label {
         border: 2px solid #4177ff !important;
         border-radius: 6px;
         background: rgba(65, 119, 255, 0.08) !important;
         box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15);
-        animation: search-pulse 0.6s ease-out;
     }
 
-    @@keyframes search-pulse {
+    /* 当前搜索节点 - 点击▼/▲时激活的节点 */
+    .tree-node.search-current > .node-header .label {
+        border: 3px solid #ff6b35 !important;
+        border-radius: 6px;
+        background: rgba(255, 107, 53, 0.12) !important;
+        box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
+        animation: current-pulse 0.6s ease-out;
+    }
+
+    @@keyframes current-pulse {
         0% {
-            box-shadow: 0 0 0 0 rgba(65, 119, 255, 0.4);
+            box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.6);
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.02);
         }
         100% {
-            box-shadow: 0 0 0 3px rgba(65, 119, 255, 0.15);
+            box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25);
+            transform: scale(1);
         }
     }
 

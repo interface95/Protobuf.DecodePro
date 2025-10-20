@@ -5,6 +5,7 @@
         bool isSelected = SelectedPath == node.Path;
         bool isFirstNode = i == 0;
         bool isSearchHighlight = SearchMatches.Contains(node.Path);
+        bool isCurrentSearch = !string.IsNullOrEmpty(CurrentSearchPath) && node.Path == CurrentSearchPath;
         <ProtoTreeViewNode Node="node"
                            OnSelect="OnSelect"
                            ExpandedState="ExpandedState"
@@ -13,7 +14,9 @@
                            IsFirstNode="isFirstNode"
                            TotalNodeCount="@(isFirstNode ? GetTotalNodeCount() : 0)"
                            SearchMatches="SearchMatches"
-                           IsSearchHighlight="isSearchHighlight" />
+                           CurrentSearchPath="CurrentSearchPath"
+                           IsSearchHighlight="isSearchHighlight"
+                           IsCurrentSearch="isCurrentSearch" />
     }
 </ul>
 
@@ -22,6 +25,7 @@
     [Parameter] public EventCallback<ProtoDisplayNode> OnSelect { get; set; }
     [Parameter] public string SelectedPath { get; set; } = string.Empty;
     [Parameter] public List<string> SearchMatches { get; set; } = new();
+    [Parameter] public string CurrentSearchPath { get; set; } = string.Empty;
 
     [Parameter] public Dictionary<string, bool> ExpandedState { get; set; } = new();
 
