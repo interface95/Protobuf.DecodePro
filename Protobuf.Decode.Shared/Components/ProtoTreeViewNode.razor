@@ -11,6 +11,10 @@
                     <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
                     <span class="summary @(GetDetailClass())">
                         @GetFormattedSummary()
+                        @if (!string.IsNullOrEmpty(CurrentSearchPath))
+                        {
+                            <small style="color: red; font-size: 10px;">[@Node.Path vs @CurrentSearchPath]</small>
+                        }
                     </span>
                 </span>
             </span>
@@ -42,6 +46,10 @@
                     <span class="wire-type @(GetDetailClass())">@Node.WireType</span>
                     <span class="summary @(GetDetailClass())">
                         @GetFormattedSummary()
+                        @if (!string.IsNullOrEmpty(CurrentSearchPath))
+                        {
+                            <small style="color: red; font-size: 10px;">[@Node.Path vs @CurrentSearchPath]</small>
+                        }
                     </span>
                 </span>
             </span>
