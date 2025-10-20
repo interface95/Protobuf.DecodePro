@@ -51,7 +51,7 @@
                        @onkeydown="HandleSearchKeyDown" />
                 @if (!string.IsNullOrEmpty(searchQuery))
                 {
-                    <button type="button" class="search-clear" @onclick="ClearSearch">×</button>
+                    <span class="search-clear" @onclick="ClearSearch">×</span>
                     @if (searchMatchCount > 0)
                     {
                         <span class="search-count">@currentSearchIndex/@searchMatchCount</span>
